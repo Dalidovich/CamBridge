@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+.vscode/
+.idea/
+publish/
+TestResults/
+*.user
+*.suo
+*.pfx
+settings.json

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111418">
+  <title>CamBridge</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="top-bar">
+      <h1>CamBridge</h1>
+      <span id="status" class="status status-idle">Idle</span>
+    </header>
+
+    <section class="preview">
+      <video id="preview" playsinline muted autoplay></video>
+      <div class="indicators">
+        <span id="torch-indicator" class="badge badge-torch" hidden>Torch on</span>
+        <span id="recording-indicator" class="badge badge-recording" hidden>Recording</span>
+        <span id="streaming-indicator" class="badge badge-streaming" hidden>Streaming</span>
+      </div>
+    </section>
+
+    <p id="message" class="message">Loading...</p>
+
+    <div class="actions">
+      <button id="start-button" class="button button-primary" type="button" hidden>Start camera</button>
+      <button id="disconnect-button" class="button button-danger" type="button" hidden>Disconnect</button>
+    </div>
+
+    <p id="hint" class="hint" hidden>Keep this page open and the screen on.</p>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
