@@ -25,9 +25,10 @@ public sealed class CameraService
         var session = sessions.Current;
         if (session is null)
         {
-            return new CameraStatus(false, null, null, null, null, false, null, false);
+            return new CameraStatus(false, null, null, null, null, false, null, false, false, null);
         }
 
+        var lockedAt = session.Frames.LockedAt;
         return new CameraStatus(
             true,
             session.UserAgent,
@@ -36,12 +37,22 @@ public sealed class CameraService
             session.Capabilities,
             session.TorchOn,
             session.ZoomValue,
-            session.Frames.IsActive);
+            session.Frames.IsActive,
+            lockedAt is not null,
+            lockedAt);
     }
+
+    public DateTimeOffset? FrameLockedAt => sessions.Current?.Frames.LockedAt;
 
     public async Task<MediaPayload> TakeSnapshotAsync(double? quality, int? maxWidth, CancellationToken cancellationToken)
     {
         var session = RequireSession();
+        var locked = session.Frames.LockedFrame;
+        if (locked is not null)
+        {
+            return new MediaPayload(locked, "image/jpeg");
+        }
+
         var cached = TryGetCachedFrame(session);
         if (cached is not null)
         {
@@ -60,7 +71,7 @@ public sealed class CameraService
 
     public async Task<bool> SetTorchAsync(bool on, CancellationToken cancellationToken)
     {
-        var session = RequireSession();
+        var session = RequireUnlockedSession("Torch control");
         if (session.Capabilities is { Torch: false })
         {
             throw new PhoneCommandException("The phone camera does not support the torch.");
@@ -74,7 +85,7 @@ public sealed class CameraService
 
     public async Task<(double Value, ZoomCapability Range)> SetZoomAsync(double value, CancellationToken cancellationToken)
     {
-        var session = RequireSession();
+        var session = RequireUnlockedSession("Zoom control");
         var range = session.Capabilities?.Zoom
             ?? throw new PhoneCommandException("The phone camera does not support zoom.");
         var clamped = range.Clamp(double.IsNaN(value) ? range.Min : value);
@@ -86,7 +97,7 @@ public sealed class CameraService
 
     public async Task<MediaPayload> RecordClipAsync(int seconds, CancellationToken cancellationToken)
     {
-        var session = RequireSession();
+        var session = RequireUnlockedSession("Recording");
         var duration = Math.Clamp(seconds, MediaLimits.MinClipSeconds, MediaLimits.MaxClipSeconds);
         var reply = await session.RequestAsync(
             "record",
@@ -119,6 +130,12 @@ public sealed class CameraService
     }
 
     private PhoneSession RequireSession() => sessions.Current ?? throw new PhoneNotConnectedException();
+
+    private PhoneSession RequireUnlockedSession(string operation)
+    {
+        var session = RequireSession();
+        return session.Frames.LockedFrame is null ? session : throw new FrameLockedException(operation);
+    }
 
     private static MediaPayload RequireMedia(PhoneReply reply, string operation)
     {

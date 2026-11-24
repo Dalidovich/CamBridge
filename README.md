@@ -10,6 +10,8 @@ Portable Windows console app that turns a phone camera into a camera for local a
    - MCP (Streamable HTTP): `http://127.0.0.1:8780/mcp`
    - REST: `http://127.0.0.1:8780/api` (`status`, `snapshot`, `stream`, `torch`, `zoom`, `clip`)
 
+**Lock frame** on the phone freezes the current frame: until **Unlock**, `snapshot`, `capture_frames` and `stream` return only the locked frame, while `torch`, `zoom` and `clip` fail (REST `423 Locked`). `status` reports `frameLocked` and `frameLockedAt`.
+
 Keys: `D` disconnects the phone and shows a new QR code, `Q` quits.
 
 Only one phone can be paired at a time. Windows Firewall may ask to allow inbound connections on the phone port the first time.

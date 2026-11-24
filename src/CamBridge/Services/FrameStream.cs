@@ -10,7 +10,31 @@ public sealed class FrameStream
     private byte[]? latestFrame;
     private long latestSequence;
     private DateTimeOffset latestFrameAt;
+    private byte[]? lockedFrame;
+    private DateTimeOffset? lockedAt;
     private bool completed;
+
+    public byte[]? LockedFrame
+    {
+        get
+        {
+            lock (sync)
+            {
+                return lockedFrame;
+            }
+        }
+    }
+
+    public DateTimeOffset? LockedAt
+    {
+        get
+        {
+            lock (sync)
+            {
+                return lockedAt;
+            }
+        }
+    }
 
     public StreamParameters? Effective
     {
@@ -52,7 +76,7 @@ public sealed class FrameStream
             var before = ComputeEffective();
             subscribers.Remove(subscriberId);
             effective = ComputeEffective();
-            if (effective is null)
+            if (effective is null && lockedFrame is null)
             {
                 latestFrame = null;
             }
@@ -66,19 +90,48 @@ public sealed class FrameStream
         TaskCompletionSource signal;
         lock (sync)
         {
-            if (completed || subscribers.Count == 0)
+            if (completed || subscribers.Count == 0 || lockedFrame is not null)
             {
                 return;
             }
 
-            latestFrame = frame;
-            latestSequence++;
-            latestFrameAt = DateTimeOffset.UtcNow;
-            signal = frameSignal;
-            frameSignal = NewSignal();
+            signal = StoreLatest(frame);
         }
 
         signal.TrySetResult();
+    }
+
+    public void Lock(byte[] frame)
+    {
+        TaskCompletionSource signal;
+        lock (sync)
+        {
+            if (completed)
+            {
+                return;
+            }
+
+            lockedFrame = frame;
+            lockedAt = DateTimeOffset.Now;
+            signal = StoreLatest(frame);
+        }
+
+        signal.TrySetResult();
+    }
+
+    public void Unlock()
+    {
+        lock (sync)
+        {
+            if (lockedFrame is null)
+            {
+                return;
+            }
+
+            lockedFrame = null;
+            lockedAt = null;
+            latestFrame = null;
+        }
     }
 
     public byte[]? TryGetFreshFrame(TimeSpan maxAge)
@@ -122,10 +175,22 @@ public sealed class FrameStream
         {
             completed = true;
             latestFrame = null;
+            lockedFrame = null;
+            lockedAt = null;
             signal = frameSignal;
         }
 
         signal.TrySetResult();
+    }
+
+    private TaskCompletionSource StoreLatest(byte[] frame)
+    {
+        latestFrame = frame;
+        latestSequence++;
+        latestFrameAt = DateTimeOffset.UtcNow;
+        var signal = frameSignal;
+        frameSignal = NewSignal();
+        return signal;
     }
 
     private StreamParameters? ComputeEffective()

@@ -17,7 +17,9 @@
 
     <section class="preview">
       <video id="preview" playsinline muted autoplay></video>
+      <img id="locked-frame" class="locked-frame" alt="Locked frame" hidden>
       <div class="indicators">
+        <span id="locked-indicator" class="badge badge-locked" hidden>Frame locked</span>
         <span id="torch-indicator" class="badge badge-torch" hidden>Torch on</span>
         <span id="recording-indicator" class="badge badge-recording" hidden>Recording</span>
         <span id="streaming-indicator" class="badge badge-streaming" hidden>Streaming</span>
@@ -28,6 +30,7 @@
 
     <div class="actions">
       <button id="start-button" class="button button-primary" type="button" hidden>Start camera</button>
+      <button id="lock-button" class="button button-lock" type="button" hidden>Lock frame</button>
       <button id="disconnect-button" class="button button-danger" type="button" hidden>Disconnect</button>
     </div>
 

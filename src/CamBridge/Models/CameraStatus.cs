@@ -8,4 +8,6 @@ public sealed record CameraStatus(
     PhoneCapabilities? Capabilities,
     bool Torch,
     double? Zoom,
-    bool Streaming);
+    bool Streaming,
+    bool FrameLocked,
+    DateTimeOffset? FrameLockedAt);

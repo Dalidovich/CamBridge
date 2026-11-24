@@ -210,6 +210,16 @@ public sealed class PhoneSession
             return;
         }
 
+        if (id == PhoneMessageCodec.LockFrameId)
+        {
+            if (reply.Media is not null)
+            {
+                Frames.Lock(reply.Media.Data);
+            }
+
+            return;
+        }
+
         Complete(id, reply);
     }
 
@@ -241,6 +251,9 @@ public sealed class PhoneSession
                         await ApplyStreamAsync(effective);
                     }
 
+                    break;
+                case "unlock":
+                    Frames.Unlock();
                     break;
                 case "result":
                     var id = PhoneMessageCodec.ReadString(root, "id");

@@ -23,6 +23,7 @@ public static class ApiErrorMapper
             PhoneNotConnectedException => StatusCodes.Status503ServiceUnavailable,
             PhoneTimeoutException => StatusCodes.Status504GatewayTimeout,
             PhoneCommandException => StatusCodes.Status502BadGateway,
+            FrameLockedException => StatusCodes.Status423Locked,
             _ => 0
         };
 

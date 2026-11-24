@@ -3,6 +3,7 @@
 
   const PING_INTERVAL_MS = 3000;
   const MAX_BUFFERED_BYTES = 2 * 1024 * 1024;
+  const LOCK_JPEG_QUALITY = 0.92;
   const RECORD_MIME_CANDIDATES = ["video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
 
   const elements = {
@@ -12,6 +13,9 @@
     video: document.getElementById("preview"),
     startButton: document.getElementById("start-button"),
     disconnectButton: document.getElementById("disconnect-button"),
+    lockButton: document.getElementById("lock-button"),
+    lockedFrame: document.getElementById("locked-frame"),
+    lockedIndicator: document.getElementById("locked-indicator"),
     torchIndicator: document.getElementById("torch-indicator"),
     recordingIndicator: document.getElementById("recording-indicator"),
     streamingIndicator: document.getElementById("streaming-indicator")
@@ -30,6 +34,8 @@
     streamTimer: null,
     streamBusy: false,
     recording: false,
+    lockedFrameUrl: null,
+    locking: false,
     connected: false,
     endedByUser: false
   };
@@ -187,6 +193,7 @@
     setStatus("Connected", "connected");
     showMessage("Connected. The PC can now use this camera.");
     setVisible(elements.disconnectButton, true);
+    setVisible(elements.lockButton, true);
     setVisible(elements.hint, true);
 
     sendJson({ type: "hello", userAgent: navigator.userAgent, capabilities: state.capabilities });
@@ -213,10 +220,12 @@
     clearInterval(state.pingTimer);
     state.pingTimer = null;
     stopStreaming();
+    clearLockedFrame();
     releaseWakeLock();
     stopCamera();
     state.socket = null;
     setVisible(elements.disconnectButton, false);
+    setVisible(elements.lockButton, false);
     setVisible(elements.hint, false);
     setVisible(elements.torchIndicator, false);
   }
@@ -338,7 +347,7 @@
     const interval = Math.max(33, Math.round(1000 / Math.max(1, message.fps || 10)));
     setVisible(elements.streamingIndicator, true);
     state.streamTimer = setInterval(async () => {
-      if (state.streamBusy || !state.socket || state.socket.bufferedAmount > MAX_BUFFERED_BYTES) {
+      if (state.streamBusy || state.lockedFrameUrl || !state.socket || state.socket.bufferedAmount > MAX_BUFFERED_BYTES) {
         return;
       }
 
@@ -359,6 +368,59 @@
     state.streamTimer = null;
     state.streamBusy = false;
     setVisible(elements.streamingIndicator, false);
+  }
+
+  async function toggleLock() {
+    if (state.lockedFrameUrl) {
+      sendJson({ type: "unlock" });
+      clearLockedFrame();
+      showMessage("Frame unlocked. The PC can use the live camera again.");
+      return;
+    }
+
+    if (state.locking || !state.connected) {
+      return;
+    }
+
+    state.locking = true;
+    elements.lockButton.disabled = true;
+    try {
+      const blob = await captureFrame(LOCK_JPEG_QUALITY, null);
+      if (!state.connected) {
+        return;
+      }
+
+      sendBinary({ id: "lock", mime: "image/jpeg", ok: true }, blob);
+      showLockedFrame(blob);
+      showMessage("Frame locked. The PC can only get this frame until you unlock it.");
+    } catch (error) {
+      showMessage("Could not lock the frame: " + (error.message || String(error)));
+    } finally {
+      state.locking = false;
+      elements.lockButton.disabled = false;
+    }
+  }
+
+  function showLockedFrame(blob) {
+    state.lockedFrameUrl = URL.createObjectURL(blob);
+    elements.lockedFrame.src = state.lockedFrameUrl;
+    setVisible(elements.lockedFrame, true);
+    setVisible(elements.lockedIndicator, true);
+    elements.lockButton.textContent = "Unlock";
+    elements.lockButton.classList.add("is-locked");
+  }
+
+  function clearLockedFrame() {
+    if (state.lockedFrameUrl) {
+      URL.revokeObjectURL(state.lockedFrameUrl);
+    }
+
+    state.lockedFrameUrl = null;
+    elements.lockedFrame.removeAttribute("src");
+    setVisible(elements.lockedFrame, false);
+    setVisible(elements.lockedIndicator, false);
+    elements.lockButton.textContent = "Lock frame";
+    elements.lockButton.classList.remove("is-locked");
   }
 
   async function applyAdvancedConstraint(constraint) {
@@ -500,6 +562,7 @@
   function initialize() {
     elements.startButton.addEventListener("click", startCamera);
     elements.disconnectButton.addEventListener("click", disconnect);
+    elements.lockButton.addEventListener("click", toggleLock);
     elements.video.addEventListener("click", () => elements.video.play().catch(() => undefined));
     document.addEventListener("visibilitychange", onVisibilityChange);
 

@@ -7,6 +7,7 @@ namespace CamBridge.Services;
 public static class PhoneMessageCodec
 {
     public const string StreamFrameId = "stream";
+    public const string LockFrameId = "lock";
     private const int HeaderLengthSize = 4;
 
     public static JsonSerializerOptions SerializerOptions { get; } = new(JsonSerializerDefaults.Web);
